@@ -6,6 +6,8 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import {signIn} from '@/auth'
 import { AuthError } from 'next-auth';
+import { getUser } from './data';
+import bcrypt from 'bcrypt';
 
 const FormSchema = z.object({
     id: z.string(),
@@ -19,7 +21,19 @@ const FormSchema = z.object({
     date: z.string(),
 })
 
-export type State = {
+const UserFormSchema = z.object({
+    id: z.string(),
+    name: z.string({
+        invalid_type_error: 'Please enter your name.'
+    }),
+    email: z
+            .string()
+            .min(1, { message: "This field has to be filled." })
+            .email("This is not a valid email."),
+    password: z.string().min(8, {message: "Must be at least 8 characters long."})
+})
+
+export type invoiceState = {
     errors?: {
       customerId?: string[];
       amount?: string[];
@@ -28,11 +42,21 @@ export type State = {
     message?: string | null;
   };
 
+export type userState = {
+  errors?: {
+    name: string[];
+    email?: string[];
+    password?: string[];
+  };
+  message?: string | null;
+}
+
 const CreateInvoice = FormSchema.omit({ id: true, date: true });
 const UpdateInvoice = FormSchema.omit({ id: true, date: true });
+const SignUp = UserFormSchema.omit({id: true})
 
 
-export async function createInvoice(prevState: State, formData: FormData) {
+export async function createInvoice(prevState: invoiceState, formData: FormData) {
     const validatedFields = CreateInvoice.safeParse({
       customerId: formData.get('customerId'),
       amount: formData.get('amount'),
@@ -66,7 +90,7 @@ export async function createInvoice(prevState: State, formData: FormData) {
     redirect('/dashboard/invoices')
   }
 
-  export async function updateInvoice(id: string, prevState: State, formData: FormData) {
+  export async function updateInvoice(id: string, prevState: invoiceState, formData: FormData) {
     const validatedFields = UpdateInvoice.safeParse({
       customerId: formData.get('customerId'),
       amount: formData.get('amount'),
@@ -134,4 +158,40 @@ export async function createInvoice(prevState: State, formData: FormData) {
       }
       throw error;
     }
+  }
+
+  export async function signUp(
+    prevState: string | undefined,
+    formData: FormData
+  ) {
+    const validatedFields = SignUp.safeParse({
+      name: formData.get('name'),
+      email: formData.get('email'),
+      password: formData.get('password'),
+    })
+
+    if (!validatedFields.success) {
+      return {
+        errors: validatedFields.error.flatten().fieldErrors,
+        message: 'Missing Fields. Failed to Sign Up.',
+      };
+    }
+
+          // Prepare data for insertion into the database
+          const { name, email, password } = validatedFields.data;
+          const salt = await bcrypt.genSalt()
+          const encryptedPassword = await bcrypt.hash(password, salt)
+
+          try {
+            await sql`INSERT INTO users (name, email, password)
+                        VALUES(${name}, ${email}, ${encryptedPassword})
+                `;
+        } catch(e) {
+            return {
+                message: 'Database Error: Failed to User.'
+            }
+        }
+
+    revalidatePath('/dashboard');
+    redirect('/dashboard');
   }
