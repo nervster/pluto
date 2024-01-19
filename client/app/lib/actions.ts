@@ -44,11 +44,14 @@ export type invoiceState = {
 
 export type userState = {
   errors?: {
-    name: string[];
+    name?: string[];
     email?: string[];
     password?: string[];
   };
-  message?: string | null;
+message: string;
+} | {
+message: string;
+errors?: undefined;
 }
 
 const CreateInvoice = FormSchema.omit({ id: true, date: true });
@@ -161,7 +164,7 @@ export async function createInvoice(prevState: invoiceState, formData: FormData)
   }
 
   export async function signUp(
-    prevState: string | undefined,
+    prevState: userState | undefined,
     formData: FormData
   ) {
     const validatedFields = SignUp.safeParse({
