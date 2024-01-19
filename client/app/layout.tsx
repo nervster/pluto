@@ -4,11 +4,11 @@ import { Metadata } from 'next';
  
 export const metadata: Metadata = {
   title: {
-    template: '%s | Acme Dashboard',
-    default: 'Acme Dashboard',
+    template: '%s | Pluto Dashboard',
+    default: 'Pluto Dashboard',
   },
-  description: 'The official Next.js Course Dashboard, built with App Router.',
-  metadataBase: new URL('https://next-learn-dashboard.vercel.sh'),
+  description: 'The Bottom-Up Budgeting App',
+  metadataBase: new URL('https://github.com/nervster/pluto'),
 };
 
 export default function RootLayout({

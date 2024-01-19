@@ -161,6 +161,8 @@ export async function createInvoice(prevState: invoiceState, formData: FormData)
       }
       throw error;
     }
+    revalidatePath('/dashboard')
+    redirect('/dashboard')
   }
 
   export async function signUp(
