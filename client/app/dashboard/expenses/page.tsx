@@ -1,12 +1,12 @@
 import Pagination from '@/app/ui/invoices/pagination';
 import Search from '@/app/ui/search';
-import Table from '@/app/ui/invoices/table';
-import { CreateInvoice } from '@/app/ui/invoices/buttons';
+import Table from '@/app/ui/expenses/table';
 import { lusitana } from '@/app/ui/fonts';
 import { InvoicesTableSkeleton } from '@/app/ui/skeletons';
 import { Suspense } from 'react';
-import { fetchInvoicesPages } from '@/app/lib/data';
+import { fetchExpensePages } from '@/app/lib/data';
 import { Metadata } from 'next';
+import { CreateExpense } from '@/app/ui/expenses/buttons';
 
 export const metadata: Metadata = {
     title: 'Expenses',
@@ -23,7 +23,7 @@ export default async function Page({
 ) {
     const query = searchParams?.query || '';
     const currentPage = Number(searchParams?.page) || 1;
-    const totalPages = await fetchInvoicesPages(query);
+    const totalPages = await fetchExpensePages(query);
 
   return (
     <div className="w-full">
@@ -32,7 +32,7 @@ export default async function Page({
       </div>
       <div className="mt-4 flex items-center justify-between gap-2 md:mt-8">
         <Search placeholder="Search expenses..." />
-        <CreateInvoice />
+        <CreateExpense />
       </div>
       {<Suspense key={query + currentPage} fallback={<InvoicesTableSkeleton />}>
         <Table query={query} currentPage={currentPage} />

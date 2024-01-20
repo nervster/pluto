@@ -69,6 +69,14 @@ export type InvoicesTable = {
   status: 'pending' | 'paid';
 };
 
+export type ExpenseTable = {
+  id: string;
+  amount: number;
+  spent_date: string;
+  updated_at: string;
+  description: string;
+};
+
 export type CustomersTableType = {
   id: string;
   name: string;
@@ -99,4 +107,12 @@ export type InvoiceForm = {
   customer_id: string;
   amount: number;
   status: 'pending' | 'paid';
+};
+
+export type ExpenseForm = {
+  id: string;
+  user_id: string;
+  amount: number;
+  description: string | null;
+  spent_date: string;
 };

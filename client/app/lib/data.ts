@@ -1,4 +1,4 @@
-import { sql } from '@vercel/postgres';
+import { QueryResultRow, sql } from '@vercel/postgres';
 import {
   CustomerField,
   CustomersTableType,
@@ -7,12 +7,19 @@ import {
   LatestInvoiceRaw,
   User,
   Revenue,
-  LatestExpenseRaw
+  LatestExpenseRaw,
+  ExpenseTable,
+  ExpenseForm
 } from './definitions';
 import { formatCurrency } from './utils';
 import { unstable_noStore as noStore } from 'next/cache';
 import { auth } from "../../auth"
 
+export async function getSessionUser(): Promise<QueryResultRow> {
+  const session = await auth();
+  const user = await sql`SELECT * from users where email=${session?.user?.email}`;
+  return user;
+}
 
 
 
@@ -62,8 +69,7 @@ export async function fetchLatestInvoices() {
 
 export async function fetchLatestExpenses() {
   noStore();
-  const session = await auth()
-  const user = await sql`SELECT * from users where email=${session?.user?.email}`
+  const user = await getSessionUser();
   try {
     const data = await sql<LatestExpenseRaw>`
       SELECT *
@@ -147,7 +153,39 @@ export async function fetchCardData() {
   }
 }
 
-const ITEMS_PER_PAGE = 6;
+const ITEMS_PER_PAGE = 10;
+export async function fetchFilteredExpenses(
+  query: string,
+  currentPage: number,
+) {
+  noStore();
+  const offset = (currentPage - 1) * ITEMS_PER_PAGE;
+  const user = await getSessionUser();
+
+  try {
+    const expenses = await sql<ExpenseTable>`
+      SELECT
+        expenses.id,
+        expenses.amount,
+        expenses.spent_date,
+        expenses.description,
+        expenses.updated_at
+      FROM expenses
+      WHERE
+        user_id = ${user?.rows[0].id} AND 
+        (expenses.amount::text ILIKE ${`%${query}%`} OR
+        expenses.spent_date::text ILIKE ${`%${query}%`} OR
+        expenses.description ILIKE ${`%${query}%`})
+      ORDER BY expenses.updated_at DESC
+      LIMIT ${ITEMS_PER_PAGE} OFFSET ${offset}
+    `;
+
+    return expenses.rows;
+  } catch (error) {
+    console.error('Database Error:', error);
+    throw new Error('Failed to fetch expenses.');
+  }
+}
 export async function fetchFilteredInvoices(
   query: string,
   currentPage: number,
@@ -180,6 +218,27 @@ export async function fetchFilteredInvoices(
   } catch (error) {
     console.error('Database Error:', error);
     throw new Error('Failed to fetch invoices.');
+  }
+}
+
+export async function fetchExpensePages(query: string) {
+  noStore();
+  const user = await getSessionUser();
+  try {
+    const count = await sql`SELECT COUNT(*)
+  FROM expenses
+  WHERE
+    user_id = ${user?.rows[0].id} AND 
+    (expenses.amount::text ILIKE ${`%${query}%`} OR
+    expenses.spent_date::text ILIKE ${`%${query}%`} OR
+    expenses.description ILIKE ${`%${query}%`})
+  `;
+
+    const totalPages = Math.ceil(Number(count.rows[0].count) / ITEMS_PER_PAGE);
+    return totalPages;
+  } catch (error) {
+    console.error('Database Error:', error);
+    throw new Error('Failed to fetch total number of expenses.');
   }
 }
 
@@ -228,6 +287,31 @@ export async function fetchInvoiceById(id: string) {
   } catch (error) {
     console.error('Database Error:', error);
     throw new Error('Failed to fetch invoice.');
+  }
+}
+
+export async function fetchExpenseById(id: string) {
+  noStore();
+  try {
+    const data = await sql<ExpenseForm>`
+      SELECT
+        id,
+        user_id,
+        amount,
+        description,
+        spent_date
+      FROM expenses
+      WHERE id = ${id};
+    `;
+
+    const expense = data.rows.map((exp) => ({
+      ...exp
+    }));
+
+    return expense[0];
+  } catch (error) {
+    console.error('Database Error:', error);
+    throw new Error('Failed to fetch expense.');
   }
 }
 
