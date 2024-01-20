@@ -7,14 +7,20 @@ import {
   LatestInvoiceRaw,
   User,
   Revenue,
+  LatestExpenseRaw
 } from './definitions';
 import { formatCurrency } from './utils';
 import { unstable_noStore as noStore } from 'next/cache';
+import { auth } from "../../auth"
+
+
+
 
 export async function fetchRevenue() {
   // Add noStore() here to prevent the response from being cached.
   // This is equivalent to in fetch(..., {cache: 'no-store'}).
   noStore();
+
   try {
     // Artificially delay a response for demo purposes.
     // Don't do this in production :)
@@ -54,8 +60,34 @@ export async function fetchLatestInvoices() {
   }
 }
 
+export async function fetchLatestExpenses() {
+  noStore();
+  const session = await auth()
+  const user = await sql`SELECT * from users where email=${session?.user?.email}`
+  try {
+    const data = await sql<LatestExpenseRaw>`
+      SELECT *
+      FROM expenses
+      WHERE user_id = ${user?.rows[0].id}
+      ORDER BY spent_date DESC
+      LIMIT 5`;
+
+    const latestExpenses = data.rows.map((expense) => ({
+      ...expense,
+      amount: formatCurrency(expense.amount * 100),
+    }));
+    return latestExpenses;
+  } catch (error) {
+    console.error('Database Error:', error);
+    throw new Error('Failed to fetch the latest invoices.');
+  }
+}
+
+
 export async function fetchCardData() {
   noStore();
+  const session = await auth()
+  const user = await sql`SELECT * from users where email=${session?.user?.email}`
   try {
     // You can probably combine these into a single SQL query
     // However, we are intentionally splitting them to demonstrate
@@ -66,11 +98,27 @@ export async function fetchCardData() {
          SUM(CASE WHEN status = 'paid' THEN amount ELSE 0 END) AS "paid",
          SUM(CASE WHEN status = 'pending' THEN amount ELSE 0 END) AS "pending"
          FROM invoices`;
+    const expenseCount = sql`SELECT count(*) from expenses where user_id=${user?.rows[0].id} and EXTRACT(MONTH FROM updated_at) =${new Date(Date.now()).getMonth() + 1}`
+    const expenseAmount = sql`SELECT SUM(amount) AS "expenses_amt" from expenses where user_id=${user?.rows[0].id} and EXTRACT(MONTH FROM updated_at) = ${new Date(Date.now()).getMonth() + 1}`
+    const dailyExpense = sql`SELECT ROUND(amount/EXTRACT(DAY FROM (date_trunc('MONTH', CURRENT_DATE) + INTERVAL '1 MONTH' - INTERVAL '1 day')),2) as "daily" from monthly_budgets
+                              WHERE user_id=${user?.rows[0].id}
+                              order by created_at desc
+                              limit 1`;
+    const monthlySaved = sql`SELECT (amount/EXTRACT(DAY FROM (date_trunc('MONTH', CURRENT_DATE) + INTERVAL '1 MONTH' - INTERVAL '1 day'))) 
+                              * EXTRACT(DAY FROM  CURRENT_DATE) as monthly_accumulated
+                              FROM monthly_budgets
+                              WHERE user_id=${user?.rows[0].id}
+                              order by created_at desc
+                              limit 1`;
 
     const data = await Promise.all([
       invoiceCountPromise,
       customerCountPromise,
       invoiceStatusPromise,
+      expenseCount,
+      expenseAmount,
+      dailyExpense,
+      monthlySaved
     ]);
 
     const numberOfInvoices = Number(data[0].rows[0].count ?? '0');
@@ -78,11 +126,20 @@ export async function fetchCardData() {
     const totalPaidInvoices = formatCurrency(data[2].rows[0].paid ?? '0');
     const totalPendingInvoices = formatCurrency(data[2].rows[0].pending ?? '0');
 
+    const numberOfExpenses = Number(data[3].rows[0].count ?? '0');
+    const totalExpenses = formatCurrency(data[4].rows[0].expenses_amt * 100 ?? '0');
+    const expenseDaily = formatCurrency(data[5].rows[0].daily * 100 ?? '0')
+    const monthlyLeft = formatCurrency((data[6].rows[0].monthly_accumulated - data[4].rows[0].expenses_amt) * 100 ?? '0')
+
     return {
       numberOfCustomers,
       numberOfInvoices,
       totalPaidInvoices,
       totalPendingInvoices,
+      numberOfExpenses,
+      totalExpenses,
+      expenseDaily,
+      monthlyLeft
     };
   } catch (error) {
     console.error('Database Error:', error);

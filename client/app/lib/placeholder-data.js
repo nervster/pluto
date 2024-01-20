@@ -180,9 +180,18 @@ const revenue = [
   { month: 'Dec', revenue: 4800 },
 ];
 
+const monthly_budgets = [
+  {
+    user_id: "410544b2-4001-4271-9855-fec4b6a6442a",
+    amount: 1000.00,
+    created_at: Date.now()
+  }
+]
+
 module.exports = {
   users,
   customers,
   invoices,
   revenue,
+  monthly_budgets
 };

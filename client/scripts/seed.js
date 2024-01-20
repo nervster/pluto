@@ -4,6 +4,7 @@ const {
   customers,
   revenue,
   users,
+  monthly_budgets
 } = require('../app/lib/placeholder-data.js');
 const bcrypt = require('bcrypt');
 
@@ -125,6 +126,90 @@ async function seedCustomers(client) {
   }
 }
 
+async function seedMonthlyBudget(client) {
+  try {
+    await client.sql`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`;
+    const createTable = await client.sql`
+      CREATE TABLE IF NOT EXISTS monthly_budgets (
+        id UUID default uuid_generate_v4() primary key,
+        user_id UUID not null references users,
+        amount decimal(9, 2) not null,
+        created_at TIMESTAMP not null
+      );
+    `;
+
+    const users = await client.sql`SELECT * from users;`;
+
+    console.log(`Created "monthly_budgets" table`);
+
+    // Insert data into the "monthly_budgets" table
+    const insertedMonthlyBudgets = await Promise.all(
+
+      users.rows.map(
+        (user) => client.sql`
+        INSERT INTO monthly_budgets (user_id, amount, created_at)
+        VALUES (${user.id}, ${1200}, to_timestamp(${Date.now()} / 1000.0))
+        ON CONFLICT (id) DO NOTHING;
+      `,
+      ),
+    );
+
+    console.log(`Seeded ${insertedMonthlyBudgets.length}`);
+
+    return {
+      createTable,
+      monthlyBudgets: insertedMonthlyBudgets,
+    };
+  } catch (error) {
+    console.error('Error seeding Monthly Budget:', error);
+    throw error;
+  }
+}
+
+async function seedExpenses(client) {
+  try {
+    await client.sql`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`;
+    const createTable = await client.sql`
+      CREATE TABLE IF NOT EXISTS expenses (
+        id UUID default uuid_generate_v4() primary key,
+        user_id UUID not null references users,
+        amount decimal(9, 2) not null,
+        description TEXT,
+        created_at TIMESTAMP not null,
+        updated_at TIMESTAMP not null
+      );
+    `;
+
+    const users = await client.sql`SELECT * from users;`;
+
+    console.log(`Created "expenses" table`);
+
+    // Insert data into the "expenses" table
+    const insertedExpenses = await Promise.all(
+      users.rows.map( async (user) => {
+        for (let i = 0; i < 50; i++) {
+          const randomAmount = (Math.random() * (120.00 - 5.00) + 5.00).toFixed(2);
+          const randomMilliseconds = Math.floor(Math.random() * (24 * 60 * 60 * 1000)); 
+          const des = `test_expense_${i}`       
+          await client.sql`INSERT INTO expenses (user_id, amount, description, created_at, updated_at)
+          VALUES (${user.id}, ${randomAmount},${des}, to_timestamp(${Date.now() - randomMilliseconds} / 1000.0), to_timestamp(${Date.now() - randomMilliseconds} / 1000.0))
+          ON CONFLICT (id) DO NOTHING;`;
+        }
+    }), 
+    );
+
+    console.log(`Seeded ${insertedExpenses.length}`);
+
+    return {
+      createTable,
+      expenses: insertedExpenses,
+    };
+  } catch (error) {
+    console.error('Error seeding Expenses:', error);
+    throw error;
+  }
+}
+
 async function seedRevenue(client) {
   try {
     // Create the "revenue" table if it doesn't exist
@@ -163,10 +248,12 @@ async function seedRevenue(client) {
 async function main() {
   const client = await db.connect();
 
-  await seedUsers(client);
-  await seedCustomers(client);
-  await seedInvoices(client);
-  await seedRevenue(client);
+  // await seedUsers(client);
+  // await seedCustomers(client);
+  // await seedInvoices(client);
+  // await seedRevenue(client);
+  // await seedMonthlyBudget(client);
+  await seedExpenses(client);
 
   await client.end();
 }

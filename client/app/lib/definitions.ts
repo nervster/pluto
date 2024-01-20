@@ -39,8 +39,22 @@ export type LatestInvoice = {
   amount: string;
 };
 
+export type LatestExpense = {
+  id: string;
+  user_id: string;
+  amount: string;
+  description: string;
+  created_at: string;
+  updated_at: string;
+  spent_date: string;
+};
+
 // The database returns a number for amount, but we later format it to a string with the formatCurrency function
 export type LatestInvoiceRaw = Omit<LatestInvoice, 'amount'> & {
+  amount: number;
+};
+
+export type LatestExpenseRaw = Omit<LatestExpense, 'amount'> & {
   amount: number;
 };
 
