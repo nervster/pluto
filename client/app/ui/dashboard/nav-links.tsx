@@ -18,7 +18,7 @@ const links = [
     href: '/dashboard/expenses',
     icon: DocumentDuplicateIcon,
   },
-  { name: 'Income', href: '/dashboard/customers', icon: UserGroupIcon },
+  { name: 'Monthly Income', href: '/dashboard/customers', icon: UserGroupIcon },
 
 ];
 
